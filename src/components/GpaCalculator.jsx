@@ -1,0 +1,1 @@
+import { getPunjabUniGPA } from '../utils/gradingScale';
