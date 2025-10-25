@@ -1,7 +1,11 @@
+import React from 'react';
+import GpaCalculator from './components/GpaCalculator';
+import './App.css';
+
 function App() {
   return (
     <div className="App">
-      <h1>GPA Calculator</h1>
+      <GpaCalculator />
     </div>
   );
 }
