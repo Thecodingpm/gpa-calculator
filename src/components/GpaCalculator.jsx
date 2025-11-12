@@ -13,6 +13,16 @@ const GpaCalculator = () => {
       ]
     }
   ]);
+  
+  // CGPA mode: stores semester GPAs and credit hours
+  const [cgpaSemesters, setCgpaSemesters] = useState([
+    {
+      id: 1,
+      name: 'Semester 1',
+      gpa: '',
+      credits: ''
+    }
+  ]);
 
   const gradeScale = [
     { percentage: '85 & Above', letter: 'A', points: 4.00 },
@@ -36,7 +46,7 @@ const GpaCalculator = () => {
     let totalCredits = 0;
 
     courses.forEach(course => {
-      if (course.marks && course.credits) {
+      if (course.marks && course.credits && course.credits > 0) {
         const gradePoints = calculateGradePoints(course.marks);
         totalPoints += gradePoints * course.credits;
         totalCredits += course.credits;
@@ -46,18 +56,17 @@ const GpaCalculator = () => {
     return totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : 0;
   };
 
-  const calculateCumulativeGPA = () => {
+  const calculateCGPAFromSemesters = () => {
     let totalPoints = 0;
     let totalCredits = 0;
 
-    semesters.forEach(semester => {
-      semester.courses.forEach(course => {
-        if (course.marks && course.credits) {
-          const gradePoints = calculateGradePoints(course.marks);
-          totalPoints += gradePoints * course.credits;
-          totalCredits += course.credits;
-        }
-      });
+    cgpaSemesters.forEach(semester => {
+      const gpa = parseFloat(semester.gpa) || 0;
+      const credits = parseFloat(semester.credits) || 0;
+      if (gpa > 0 && credits > 0) {
+        totalPoints += gpa * credits;
+        totalCredits += credits;
+      }
     });
 
     return totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : 0;
@@ -65,7 +74,7 @@ const GpaCalculator = () => {
 
   const calculateCurrentGPA = () => {
     if (calculationType === 'cgpa') {
-      return calculateCumulativeGPA();
+      return calculateCGPAFromSemesters();
     }
     
     // For GPA calculation, only consider the first semester
@@ -164,6 +173,32 @@ const GpaCalculator = () => {
     }
   };
 
+  // CGPA mode functions
+  const updateCgpaSemester = (semesterId, field, value) => {
+    setCgpaSemesters(prev => prev.map(semester => {
+      if (semester.id === semesterId) {
+        return { ...semester, [field]: value };
+      }
+      return semester;
+    }));
+  };
+
+  const addCgpaSemester = () => {
+    const newSemesterId = Math.max(...cgpaSemesters.map(s => s.id)) + 1;
+    setCgpaSemesters(prev => [...prev, {
+      id: newSemesterId,
+      name: `Semester ${newSemesterId}`,
+      gpa: '',
+      credits: ''
+    }]);
+  };
+
+  const removeCgpaSemester = (semesterId) => {
+    if (cgpaSemesters.length > 1) {
+      setCgpaSemesters(prev => prev.filter(semester => semester.id !== semesterId));
+    }
+  };
+
   const currentGPA = calculateCurrentGPA();
 
   return (
@@ -178,26 +213,49 @@ const GpaCalculator = () => {
         <p className="subtitle">Calculate your Punjab University GPA and CGPA with precision</p>
       </div>
 
+      {/* Calculation Type Toggle - Moved to top */}
+      <div className="calculation-type-header">
+        <div className="calculation-toggle-top">
+          <div className="toggle-container-top">
+            <button 
+              className={`toggle-btn-top ${calculationType === 'gpa' ? 'active' : ''}`}
+              onClick={() => setCalculationType('gpa')}
+            >
+              GPA
+            </button>
+            <button 
+              className={`toggle-btn-top ${calculationType === 'cgpa' ? 'active' : ''}`}
+              onClick={() => setCalculationType('cgpa')}
+            >
+              CGPA
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="main-content">
         <div className="semesters-container">
-          {semesters.map((semester, index) => (
-            <div key={semester.id} className="semester-card">
-              <div className="semester-header">
-                <h3>{semester.name}</h3>
-                <div className="semester-actions">
-                  <span className="semester-gpa">
-                    {semester.name} GPA: {calculateSemesterGPA(semester.courses)}
-                  </span>
-                  {semesters.length > 1 && (
-                    <button 
-                      className="remove-semester-btn"
-                      onClick={() => removeSemester(semester.id)}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              </div>
+          {calculationType === 'gpa' ? (
+            // GPA Mode: Course-based input
+            <>
+              {semesters.map((semester, index) => (
+                <div key={semester.id} className="semester-card">
+                  <div className="semester-header">
+                    <h3>{semester.name}</h3>
+                    <div className="semester-actions">
+                      <span className="semester-gpa">
+                        {semester.name} GPA: {calculateSemesterGPA(semester.courses)}
+                      </span>
+                      {semesters.length > 1 && (
+                        <button 
+                          className="remove-semester-btn"
+                          onClick={() => removeSemester(semester.id)}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
               <div className="courses-table">
                 <div className="table-header">
@@ -211,46 +269,83 @@ const GpaCalculator = () => {
 
                 {semester.courses.map(course => (
                   <div key={course.id} className="course-row">
-                    <input
-                      type="text"
-                      placeholder="Enter course name"
-                      value={course.name}
-                      onChange={(e) => updateCourse(semester.id, course.id, 'name', e.target.value)}
-                    />
-                    <input
-                      type="number"
-                      placeholder="Marks"
-                      min="0"
-                      max="100"
-                      value={course.marks}
-                      onChange={(e) => updateCourse(semester.id, course.id, 'marks', e.target.value)}
-                    />
-                    <select
-                      value={course.grade}
-                      onChange={(e) => updateCourse(semester.id, course.id, 'grade', e.target.value)}
-                      className="grade-select"
-                    >
-                      <option value="">Select Grade</option>
-                      {gradeScale.map((grade, index) => (
-                        <option key={index} value={grade.letter}>
-                          {grade.letter}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      min="1"
-                      max="6"
-                      value={course.credits}
-                      onChange={(e) => updateCourse(semester.id, course.id, 'credits', parseInt(e.target.value) || 0)}
-                    />
-                    <span className="grade-points">{course.gradePoints.toFixed(2)}</span>
-                    <button
-                      className="remove-course-btn"
-                      onClick={() => removeCourse(semester.id, course.id)}
-                    >
-                      ✕
-                    </button>
+                    <div className="course-field">
+                      <label className="field-label-mobile">Course Name</label>
+                      <input
+                        type="text"
+                        placeholder="Enter course name"
+                        value={course.name}
+                        onChange={(e) => updateCourse(semester.id, course.id, 'name', e.target.value)}
+                      />
+                    </div>
+                    <div className="course-field">
+                      <label className="field-label-mobile">Marks</label>
+                      <input
+                        type="number"
+                        placeholder="Marks"
+                        min="0"
+                        max="100"
+                        value={course.marks}
+                        onChange={(e) => updateCourse(semester.id, course.id, 'marks', e.target.value)}
+                      />
+                    </div>
+                    <div className="course-field">
+                      <label className="field-label-mobile">Grade</label>
+                      <select
+                        value={course.grade}
+                        onChange={(e) => updateCourse(semester.id, course.id, 'grade', e.target.value)}
+                        className="grade-select"
+                      >
+                        <option value="">Select Grade</option>
+                        {gradeScale.map((grade, index) => (
+                          <option key={index} value={grade.letter}>
+                            {grade.letter}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="course-field">
+                      <label className="field-label-mobile">Credits</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[1-6]"
+                        placeholder="Credit Hours"
+                        value={course.credits === 0 || course.credits === '' ? '' : course.credits}
+                        onChange={(e) => {
+                          const value = e.target.value.trim();
+                          // Allow empty string for clearing
+                          if (value === '') {
+                            updateCourse(semester.id, course.id, 'credits', 0);
+                            return;
+                          }
+                          // Only allow digits 1-6, no leading zeros
+                          const numValue = parseInt(value, 10);
+                          if (!isNaN(numValue) && numValue >= 1 && numValue <= 6) {
+                            // Prevent leading zeros by using the parsed number directly
+                            updateCourse(semester.id, course.id, 'credits', numValue);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim();
+                          if (value === '' || value === '0' || parseInt(value, 10) === 0) {
+                            updateCourse(semester.id, course.id, 'credits', 3);
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="course-field">
+                      <label className="field-label-mobile">Grade Points</label>
+                      <span className="grade-points">{course.gradePoints.toFixed(2)}</span>
+                    </div>
+                    <div className="course-field course-actions">
+                      <button
+                        className="remove-course-btn"
+                        onClick={() => removeCourse(semester.id, course.id)}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 ))}
 
@@ -262,32 +357,95 @@ const GpaCalculator = () => {
                 </button>
               </div>
             </div>
-          ))}
-
-          <button className="add-semester-btn" onClick={addSemester}>
-            + Add Semester
-          </button>
+              ))}
+              <button className="add-semester-btn" onClick={addSemester}>
+                + Add Semester
+              </button>
+            </>
+          ) : (
+            // CGPA Mode: Semester GPA and Credit Hours input
+            <>
+              {cgpaSemesters.map((semester) => (
+                <div key={semester.id} className="cgpa-semester-card">
+                  <div className="cgpa-semester-header">
+                    <h3>{semester.name}</h3>
+                    {cgpaSemesters.length > 1 && (
+                      <button 
+                        className="remove-semester-btn"
+                        onClick={() => removeCgpaSemester(semester.id)}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <div className="cgpa-semester-inputs">
+                    <div className="cgpa-input-field">
+                      <label>Semester GPA</label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.00 - 4.00"
+                        value={semester.gpa}
+                        onChange={(e) => {
+                          let inputValue = e.target.value.replace(/[^0-9.]/g, '');
+                          // Prevent multiple decimal points
+                          const parts = inputValue.split('.');
+                          if (parts.length > 2) {
+                            inputValue = parts[0] + '.' + parts.slice(1).join('');
+                          }
+                          // Limit to 2 decimal places
+                          if (parts.length === 2 && parts[1].length > 2) {
+                            inputValue = parts[0] + '.' + parts[1].substring(0, 2);
+                          }
+                          // Allow empty string or values between 0 and 4.00
+                          if (inputValue === '' || inputValue === '.') {
+                            updateCgpaSemester(semester.id, 'gpa', inputValue);
+                          } else {
+                            const numValue = parseFloat(inputValue);
+                            if (!isNaN(numValue) && numValue >= 0 && numValue <= 4.0) {
+                              updateCgpaSemester(semester.id, 'gpa', inputValue);
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="cgpa-input-field">
+                      <label>Credit Hours</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Total Credit Hours"
+                        value={semester.credits === 0 || semester.credits === '' ? '' : semester.credits}
+                        onChange={(e) => {
+                          const value = e.target.value.trim();
+                          if (value === '') {
+                            updateCgpaSemester(semester.id, 'credits', '');
+                            return;
+                          }
+                          const numValue = parseInt(value, 10);
+                          if (!isNaN(numValue) && numValue >= 1 && numValue <= 50) {
+                            updateCgpaSemester(semester.id, 'credits', numValue);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim();
+                          if (value === '' || value === '0' || parseInt(value, 10) === 0) {
+                            updateCgpaSemester(semester.id, 'credits', '');
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <button className="add-semester-btn" onClick={addCgpaSemester}>
+                + Add Semester
+              </button>
+            </>
+          )}
         </div>
 
         <div className="gpa-display">
-          <div className="calculation-toggle">
-            <h3>Calculation Type</h3>
-            <div className="toggle-container">
-              <button 
-                className={`toggle-btn ${calculationType === 'gpa' ? 'active' : ''}`}
-                onClick={() => setCalculationType('gpa')}
-              >
-                GPA
-              </button>
-              <button 
-                className={`toggle-btn ${calculationType === 'cgpa' ? 'active' : ''}`}
-                onClick={() => setCalculationType('cgpa')}
-              >
-                CGPA
-              </button>
-            </div>
-          </div>
-
           <div className="cumulative-gpa">
             <h3>{calculationType === 'gpa' ? 'Semester GPA' : 'Cumulative GPA'}</h3>
             <div className="gpa-circle">
